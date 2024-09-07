@@ -1,0 +1,58 @@
+﻿@page "/register-employee"
+@using Alqotr.EmpRegister.DAL
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager NavigationManager
+<h3>Register Employee</h3>
+
+<EditForm Model="employee" OnValidSubmit="SumitRegisterEmployee" FormName="regEmployee">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="Name">Employee Name:</label>
+        <InputText id="Name" @bind-Value="employee.Name" class="form-control" />
+        <ValidationMessage For="@(() => employee.Name)" />
+    </div>
+
+    <div class="form-group">
+        <label for="JobNumber">Job Number:</label>
+        <InputText id="JobNumber" @bind-Value="employee.JobNumber" class="form-control" />
+        <ValidationMessage For="@(() => employee.JobNumber)" />
+    </div>
+
+    <div class="form-group">
+        <label for="MobileNumber">Mobile Number:</label>
+        <InputText id="MobileNumber" @bind-Value="employee.MobileNumber" class="form-control" />
+        <ValidationMessage For="@(() => employee.MobileNumber)" />
+    </div>
+
+    <div class="form-group">
+        <label for="Address">Address:</label>
+        <InputText id="Address" @bind-Value="employee.Address" class="form-control" />
+        <ValidationMessage For="@(() => employee.Address)" />
+    </div>
+
+    <div class="form-group">
+        <label for="Notes">Notes:</label>
+        <InputText id="Notes" @bind-Value="employee.Notes" class="form-control" />
+        <ValidationMessage For="@(() => employee.Notes)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary" >Register</button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private Employee? employee { get; set; }
+
+    [Inject]
+    private AppDbContext dbContext { get; set; }
+    protected override void OnInitialized() => employee ??= new();
+    private async Task SumitRegisterEmployee()
+    {
+        dbContext.Employees.Add(employee);
+        await dbContext.SaveChangesAsync();
+        NavigationManager.NavigateTo("/employees");
+        // Feedback to user
+    }
+}

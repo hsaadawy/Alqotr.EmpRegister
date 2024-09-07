@@ -1,0 +1,144 @@
+﻿@page "/leave-report"
+
+@inject IJSRuntime JS
+@using Alqotr.EmpRegister.DAL
+@using Append.Blazor.Printing
+@using Microsoft.EntityFrameworkCore
+
+<h3>Employee Leave Report</h3>
+
+<!-- Search Box -->
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="Search by name..." @bind="searchName"
+           @bind:event="oninput" @bind:after="FilterReports" />
+</div>
+
+<!-- Print Button -->
+<button class="btn btn-primary mb-3" @onclick="PrintDiv">Print Report</button>
+
+@if (filteredEmployeeLeaveReports.Count == 0)
+{
+    <div class="alert alert-info">No leave reports found.</div>
+}
+else
+{
+    <div id="printable-leave-report">
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Employee Name</th>
+                        <th>Job Number</th>
+                        <th>Mobile Number</th>
+                        <th>Number of Leave Applications</th>
+                        <th>Last Leave Date</th>
+                        <th>Other Leave Types Requested</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var report in pagedEmployeeLeaveReports)
+                    {
+                        <tr>
+                            <td>@report.EmployeeName</td>
+                            <td>@report.JobNumber</td>
+                            <td>@report.MobileNumber</td>
+                            <td>@report.LeaveCount</td>
+                            <td>@report.LastLeaveDate.ToShortDateString()</td>
+                            <td>@report.OtherLeaveTypes</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <button class="btn btn-secondary" @onclick="PreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
+        <span>Page @currentPage of @totalPages</span>
+        <button class="btn btn-secondary" @onclick="NextPage" disabled="@(!HasNextPage)">Next</button>
+    </div>
+}
+
+@code {
+    private List<EmployeeLeaveReport> employeeLeaveReports = new List<EmployeeLeaveReport>();
+    private List<EmployeeLeaveReport> filteredEmployeeLeaveReports = new List<EmployeeLeaveReport>();
+    private int pageSize = 5; // Number of records per page
+    private int currentPage = 1; // Current page number
+    private string searchName = string.Empty; // Search term
+
+    private IEnumerable<EmployeeLeaveReport> pagedEmployeeLeaveReports => filteredEmployeeLeaveReports
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize);
+
+    private int totalPages => (int)Math.Ceiling((double)filteredEmployeeLeaveReports.Count / pageSize);
+
+    [Inject]
+    private AppDbContext dbContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReportsAsync();
+    }
+
+    private async Task LoadReportsAsync()
+    {
+        employeeLeaveReports = await dbContext.Employees
+            .Where(e => e.LeaveApplications.Any())
+            .Select(e => new EmployeeLeaveReport
+                {
+                    EmployeeName = e.Name,
+                    JobNumber = e.JobNumber,
+                    MobileNumber = e.MobileNumber,
+                    LeaveCount = e.LeaveApplications.Count,
+                    LastLeaveDate = e.LeaveApplications.OrderByDescending(l => l.FromDate).FirstOrDefault().FromDate,
+                    OtherLeaveTypes = string.Join(", ", e.LeaveApplications.Select(l => l.VacationType.TypeName).Distinct())
+                })
+            .ToListAsync();
+
+        FilterReports();
+    }
+
+    private void FilterReports()
+    {
+        if (string.IsNullOrEmpty(searchName))
+        {
+            filteredEmployeeLeaveReports = employeeLeaveReports;
+        }
+        else
+        {
+            filteredEmployeeLeaveReports = employeeLeaveReports
+                .Where(report => report.EmployeeName.Contains(searchName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        // Reset page number when search results change
+        currentPage = 1;
+    }
+
+    private bool HasNextPage => currentPage < totalPages;
+    private bool HasPreviousPage => currentPage > 1;
+
+    private void NextPage()
+    {
+        if (HasNextPage)
+        {
+            currentPage++;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            currentPage--;
+        }
+    }
+
+    private async Task PrintDiv()
+    {
+        await JS.InvokeVoidAsync("printDivToPdf", "printable-leave-report");
+    }
+
+    
+}

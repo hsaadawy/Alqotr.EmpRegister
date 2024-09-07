@@ -1,0 +1,82 @@
+﻿@page "/apply-leave"
+@using Alqotr.EmpRegister.DAL
+@using Microsoft.EntityFrameworkCore
+@inject NavigationManager NavigationManager
+<h3>Apply for Leave</h3>
+
+<EditForm Model="leaveApplication" OnValidSubmit="SubmitLeaveApplication" FormName="applyleave">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="Employee">Employee:</label>
+        <InputSelect id="Employee" @bind-Value="leaveApplication.EmployeeId" class="form-control">
+            @foreach (var emp in employees)
+            {
+                <option value="@emp.EmployeeId">@emp.Name</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => leaveApplication.EmployeeId)" />
+    </div>
+
+    <div class="form-group">
+        <label for="VacationType">Leave Type:</label>
+        <InputSelect id="VacationType" @bind-Value="leaveApplication.VacationTypeId" class="form-control">
+            @foreach (var type in vacationTypes)
+            {
+                <option value="@type.VacationTypeId">@type.TypeName</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => leaveApplication.VacationTypeId)" />
+    </div>
+
+    <div class="form-group">
+        <label for="Reason">Reason:</label>
+        <InputText id="Reason" @bind-Value="leaveApplication.Reason" class="form-control" />
+        <ValidationMessage For="@(() => leaveApplication.Reason)" />
+    </div>
+
+    <div class="form-group">
+        <label for="FromDate">From Date:</label>
+        <InputDate id="FromDate" @bind-Value="leaveApplication.FromDate" class="form-control" />
+        <ValidationMessage For="@(() => leaveApplication.FromDate)" />
+    </div>
+
+    <div class="form-group">
+        <label for="ToDate">To Date:</label>
+        <InputDate id="ToDate" @bind-Value="leaveApplication.ToDate" class="form-control" />
+        <ValidationMessage For="@(() => leaveApplication.ToDate)" />
+    </div>
+
+    <div class="form-group">
+        <label for="Notes">Notes:</label>
+        <InputText id="Notes" @bind-Value="leaveApplication.Notes" class="form-control" />
+        <ValidationMessage For="@(() => leaveApplication.Notes)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private LeaveApplication leaveApplication { get; set; }
+    private List<Employee> employees = new List<Employee>();
+    private List<VacationType> vacationTypes = new List<VacationType>();
+
+    [Inject]
+    private AppDbContext dbContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        leaveApplication ??= new();
+        employees = await dbContext.Employees.ToListAsync();
+        vacationTypes = await dbContext.VacationTypes.ToListAsync();
+    }
+
+    private async Task SubmitLeaveApplication()
+    {
+        dbContext.LeaveApplications.Add(leaveApplication);
+        await dbContext.SaveChangesAsync();
+        NavigationManager.NavigateTo("/leave-report");
+    }
+}

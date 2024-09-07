@@ -1,0 +1,117 @@
+﻿@page "/employees"
+@using Alqotr.EmpRegister.DAL
+@using Microsoft.EntityFrameworkCore
+@using System.Linq
+
+<h3>Employees List</h3>
+
+<!-- Search Box for Filtering -->
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="Search by name..." @bind="searchTerm"
+           @bind:event="oninput" @bind:after="ApplyFilter" />
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Employee Name</th>
+            <th>Job Number</th>
+            <th>Mobile</th>
+            <th>Leave Count</th>
+            <th>Last Leave Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (pagedEmployees.Any())
+        {
+            @foreach (var emp in pagedEmployees)
+            {
+                <tr>
+                    <td>@emp.Name</td>
+                    <td>@emp.JobNumber</td>
+                    <td>@emp.MobileNumber</td>
+                    <td>@emp.LeaveApplications.Count</td>
+                    <td>@emp.LeaveApplications.OrderByDescending(l => l.FromDate).FirstOrDefault()?.FromDate.ToShortDateString()</td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" class="text-center">No employees found</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Pagination Controls -->
+<div class="d-flex justify-content-between">
+    <button class="btn btn-secondary" @onclick="PreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
+    <span>Page @currentPage of @totalPages</span>
+    <button class="btn btn-secondary" @onclick="NextPage" disabled="@(!HasNextPage)">Next</button>
+</div>
+
+@code {
+    private List<Employee> employees = new List<Employee>();
+    private List<Employee> filteredEmployees = new List<Employee>();
+    private string searchTerm = string.Empty; // For storing the search term
+    private int pageSize = 10; // Number of records per page
+    private int currentPage = 1; // Current page number
+    private int totalPages => (int)Math.Ceiling((double)filteredEmployees.Count / pageSize);
+
+    [Inject]
+    private AppDbContext dbContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Eager load related data
+        employees = await dbContext.Employees
+            .Include(e => e.LeaveApplications)
+            .ThenInclude(l => l.VacationType)
+            .ToListAsync();
+
+        // Apply initial filtering
+        ApplyFilter();
+    }
+
+    private IEnumerable<Employee> pagedEmployees
+    {
+        get
+        {
+            return filteredEmployees
+                .Skip((currentPage - 1) * pageSize)
+                .Take(pageSize);
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        filteredEmployees = employees
+            .Where(e => string.IsNullOrEmpty(searchTerm) || e.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // Reset the current page if filtering changes
+        currentPage = 1;
+    }
+
+    private bool HasNextPage => currentPage < totalPages;
+    private bool HasPreviousPage => currentPage > 1;
+
+    private void NextPage()
+    {
+        if (HasNextPage)
+        {
+            currentPage++;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            currentPage--;
+        }
+    }
+
+    
+}
